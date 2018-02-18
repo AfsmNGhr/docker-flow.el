@@ -30,18 +30,24 @@
 
 ;;; Code:
 
+(let ((buf (get-buffer-create ".dir-locals.el")))
+  (dir-locals-set-class-variables "ruby-mode"
+                                  '((eval . (setenv "test" "test"))))
+  (with-current-buffer buf
+    (save-current-buffer dir-locals-class-alist)))
+
 (defun docker-flow-select-container-name (name)
   (interactive (list (docker-flow-read-container-name "Select container: "))))
 
 (defun docker-flow-read-container-name (prompt)
   "Read an container name using PROMPT."
-  (completing-read prompt (-map #'car (docker-flow-containers-names))))
+  (completing-read prompt (-map #'car (docker-flow-container-names))))
 
-(defun docker-flow-containers-names ()
+(defun docker-flow-container-names ()
   "Return the docker containers data for `tabulated-list-entries'."
   (let* ((filter "[{{json .Names}}]")
          (data (docker "ps" (format "--format=\"%s\"" filter) "-a"))
-         (lines (split-string data "\n")))
+         (lines (s-split "\n" data t)))
     (-map #'docker-flow-container-parse lines)))
 
 (defun docker-flow-container-parse (line)
@@ -51,12 +57,11 @@
         (setq data (json-read-from-string line))
       (json-readtable-error
        (error "could not read following string as json:\n%s" line)))
-    (list (aref data 1) data)))
+    (list (aref data 0) data)))
 
 (defun docker (action &rest args)
   "Execute docker ACTION passing arguments ARGS."
   (let ((command (format "%s %s %s" "docker" action (s-join " " (-non-nil args)))))
-    (message command)
     (shell-command-to-string command)))
 
 (provide 'docker-flow)
